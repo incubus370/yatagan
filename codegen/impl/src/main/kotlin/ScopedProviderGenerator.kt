@@ -70,7 +70,7 @@ internal class ScopedProviderGenerator @Inject constructor(
                             controlFlow("synchronized (this)") {
                                 +"local = mValue"
                                 controlFlow("if (local == null)") {
-                                    +"local = mDelegate.%N(mIndex)".formatCode(SlotSwitchingGenerator.FactoryMethodName)
+                                    +"local = mDelegate.%N(mIndex)".formatCode(SlotSwitchingGenerator.FactoryAccessMethodName)
                                     +"mValue = local"
                                 }
                             }
@@ -78,7 +78,7 @@ internal class ScopedProviderGenerator @Inject constructor(
                             if (options.enableThreadChecks) {
                                 +"%T.assertThreadAccess()".formatCode(Names.ThreadAssertions)
                             }
-                            +"local = mDelegate.%N(mIndex)".formatCode(SlotSwitchingGenerator.FactoryMethodName)
+                            +"local = mDelegate.%N(mIndex)".formatCode(SlotSwitchingGenerator.FactoryAccessMethodName)
                             +"mValue = local"
                         }
                     }

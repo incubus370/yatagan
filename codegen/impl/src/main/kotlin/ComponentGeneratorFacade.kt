@@ -24,6 +24,7 @@ import com.yandex.yatagan.lang.LangModelFactory
 
 class ComponentGeneratorFacade(
     graph: BindingGraph,
+    storeInstanceObjectsInArray: Boolean,
     maxSlotsPerSwitch: Int,
     enableThreadChecks: Boolean,
     enableProvisionNullChecks: Boolean,
@@ -32,6 +33,7 @@ class ComponentGeneratorFacade(
     private val component = Yatagan.builder(GeneratorComponent.Factory::class.java).create(
         graph = graph,
         options = ComponentGenerator.Options(
+            storeInstanceObjectsInArray = storeInstanceObjectsInArray,
             maxSlotsPerSwitch = maxSlotsPerSwitch,
             enableProvisionNullChecks = enableProvisionNullChecks,
             enableThreadChecks = enableThreadChecks,

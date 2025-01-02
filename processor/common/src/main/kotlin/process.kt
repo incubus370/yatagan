@@ -92,6 +92,7 @@ fun <Source> process(
             try {
                 val generator = ComponentGeneratorFacade(
                     graph = graphRoot,
+                    storeInstanceObjectsInArray = delegate.options[BooleanOption.StoreInstanceObjectsInArray],
                     maxSlotsPerSwitch = delegate.options[IntOption.MaxSlotsPerSwitch],
                     enableThreadChecks = !delegate.options[BooleanOption.OmitThreadChecks],
                     enableProvisionNullChecks = !delegate.options[BooleanOption.OmitProvisionNullChecks],

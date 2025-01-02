@@ -49,6 +49,7 @@ internal class ComponentGenerator @Inject constructor(
     }
 
     data class Options(
+        val storeInstanceObjectsInArray: Boolean,
         val maxSlotsPerSwitch: Int,
         val enableProvisionNullChecks: Boolean,
         val enableThreadChecks: Boolean,

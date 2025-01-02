@@ -12,6 +12,7 @@ import java.lang.Object;
 import java.lang.Override;
 import java.lang.SuppressWarnings;
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import javax.annotation.processing.Generated;
 import javax.inject.Provider;
 
@@ -19,18 +20,14 @@ import javax.inject.Provider;
 @YataganGenerated
 @Generated("com.yandex.yatagan.codegen.impl.ComponentGenerator")
 public final class Yatagan$TestComponent implements TestComponent {
-  private volatile Object mClassAInstance = new UninitializedLock();
-
-  private volatile Object mClassBInstance = new UninitializedLock();
-
-  private volatile Object mClassCInstance = new UninitializedLock();
+  private final AtomicReferenceArray<Object> instances = createInstanceArray(5);
 
   private Yatagan$TestComponent() {
   }
 
   @Override
   public ClassA getA() {
-    return this.cacheClassA();
+    return this.cache(4);
   }
 
   @Override
@@ -53,56 +50,90 @@ public final class Yatagan$TestComponent implements TestComponent {
     return new DoubleCheck(this, 3);
   }
 
-  Object switch$$access(int slot) {
+  private Object switch$$access$0(int slot) {
     switch(slot) {
-      case 0: return this.cacheClassB();
-      case 1: return this.cacheClassC();
-      case 2: return new ClassD(this.cacheClassB());
-      case 3: return new ClassE(this.cacheClassB());
+      case 0: return this.cache(0);
+      case 1: return this.cache(1);
       default: throw new AssertionError();
     }
   }
 
-  ClassA cacheClassA() {
-    Object local = this.mClassAInstance;
-    if (local instanceof UninitializedLock) {
-      synchronized (local) {
-        local = this.mClassAInstance;
-        if (local instanceof UninitializedLock) {
-          local = new ClassA();
-          this.mClassAInstance = local;
-        }
-      }
+  private Object switch$$access$1(int slot) {
+    switch(slot) {
+      case 0: return new ClassD(this.cache(0));
+      case 1: return new ClassE(this.cache(0));
+      default: throw new AssertionError();
     }
-    return (ClassA) local;
   }
 
-  ClassB cacheClassB() {
-    Object local = this.mClassBInstance;
-    if (local instanceof UninitializedLock) {
-      synchronized (local) {
-        local = this.mClassBInstance;
-        if (local instanceof UninitializedLock) {
-          local = new ClassB(this.cacheClassA());
-          this.mClassBInstance = local;
-        }
-      }
+  private Object switch$$access$2(int slot) {
+    switch(slot) {
+      case 0: return this.cache(4);
+      default: throw new AssertionError();
     }
-    return (ClassB) local;
   }
 
-  ClassC cacheClassC() {
-    Object local = this.mClassCInstance;
+  Object switch$$access(int slot) {
+    switch(slot / 2) {
+      case 0: return switch$$access$0(slot % 2);
+      case 1: return switch$$access$1(slot % 2);
+      case 2: return switch$$access$2(slot % 2);
+      default: throw new AssertionError();
+    }
+  }
+
+  private Object switch$$create$0(int slot) {
+    switch(slot) {
+      case 0: return new ClassB(this.cache(4));
+      case 1: return new ClassC(this.cache(4));
+      default: throw new AssertionError();
+    }
+  }
+
+  private Object switch$$create$1(int slot) {
+    switch(slot) {
+      case 0: return new ClassD(this.cache(0));
+      case 1: return new ClassE(this.cache(0));
+      default: throw new AssertionError();
+    }
+  }
+
+  private Object switch$$create$2(int slot) {
+    switch(slot) {
+      case 0: return new ClassA();
+      default: throw new AssertionError();
+    }
+  }
+
+  Object switch$$create(int slot) {
+    switch(slot / 2) {
+      case 0: return switch$$create$0(slot % 2);
+      case 1: return switch$$create$1(slot % 2);
+      case 2: return switch$$create$2(slot % 2);
+      default: throw new AssertionError();
+    }
+  }
+
+  static AtomicReferenceArray<Object> createInstanceArray(int size) {
+    Object[] instances = new Object[size];
+    for (int index = 0; index < size; index++) {
+      instances[index] = new UninitializedLock();
+    }
+    return new AtomicReferenceArray<Object>(instances);
+  }
+
+  <I> I cache(int slot) {
+    Object local = this.instances.get(slot);
     if (local instanceof UninitializedLock) {
       synchronized (local) {
-        local = this.mClassCInstance;
+        local = this.instances.getPlain(slot);
         if (local instanceof UninitializedLock) {
-          local = new ClassC(this.cacheClassA());
-          this.mClassCInstance = local;
+          local = this.switch$$create(slot);
+          this.instances.set(slot, local);
         }
       }
     }
-    return (ClassC) local;
+    return (I) local;
   }
 
   public static AutoBuilder<Yatagan$TestComponent> autoBuilder() {

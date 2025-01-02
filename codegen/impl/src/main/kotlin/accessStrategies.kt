@@ -34,7 +34,10 @@ internal abstract class CachingStrategyBase(
     protected val binding: Binding,
     fieldsNs: Namespace,
     methodsNs: Namespace,
+    private val options: ComponentGenerator.Options,
+    protected val slotSwitchingGenerator : SlotSwitchingGenerator
 ) : AccessStrategy {
+    private val slot = slotSwitchingGenerator.requestSlot(binding)
     protected val instanceFieldName: String
     protected val instanceAccessorName: String
 
@@ -58,7 +61,12 @@ internal abstract class CachingStrategyBase(
                         binding = binding,
                         isInsideInnerClass = isInsideInnerClass,
                     )
-                    +"%L.%N()".formatCode(component, instanceAccessorName)
+                    if (options.storeInstanceObjectsInArray) {
+                        val targetType = binding.target.typeName()
+                        +"%L.<%T>%N($slot)".formatCode(component, targetType, "cache")
+                    } else {
+                        +"%L.%N()".formatCode(component, instanceAccessorName)
+                    }
                 }
                 else -> throw AssertionError()
             }.let { /*exhaustive*/ }
@@ -71,8 +79,12 @@ internal class CachingStrategySingleThread @AssistedInject constructor(
     @FieldsNamespace fieldsNs: Namespace,
     @MethodsNamespace methodsNs: Namespace,
     private val options: ComponentGenerator.Options,
-) : CachingStrategyBase(binding, fieldsNs, methodsNs) {
+    slotSwitching : SlotSwitchingGenerator
+) : CachingStrategyBase(binding, fieldsNs, methodsNs, options, slotSwitching) {
     override fun generateInComponent(builder: TypeSpecBuilder) = with(builder) {
+        if (options.storeInstanceObjectsInArray) {
+            return@with
+        }
         val targetType = binding.target.typeName()
         field(ClassName.OBJECT, instanceFieldName) {
             modifiers(PRIVATE)  // PRIVATE: only accessed via its accessor.
@@ -100,11 +112,17 @@ internal class CachingStrategyMultiThread @AssistedInject constructor(
     @Assisted binding: Binding,
     @FieldsNamespace fieldsNs: Namespace,
     @MethodsNamespace methodsNs: Namespace,
+    private val options: ComponentGenerator.Options,
     lock: LockGenerator,
-) : CachingStrategyBase(binding, fieldsNs, methodsNs) {
+    slotSwitching : SlotSwitchingGenerator
+) : CachingStrategyBase(binding, fieldsNs, methodsNs, options, slotSwitching) {
     private val lockName = lock.name
 
     override fun generateInComponent(builder: TypeSpecBuilder) = with(builder) {
+        if (options.storeInstanceObjectsInArray) {
+            return@with
+        }
+
         val targetType = binding.target.typeName()
         field(ClassName.OBJECT, instanceFieldName) {
             modifiers(PRIVATE, VOLATILE)  // PRIVATE: only accessed via its accessor.

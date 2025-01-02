@@ -50,6 +50,7 @@ enum class BooleanOption(
 ) : Option<Boolean> {
 
     StrictMode("yatagan.enableStrictMode", default = true),
+    StoreInstanceObjectsInArray("yatagan.experimental.storeObjectsInArray", default = true),
     UsePlainOutput("yatagan.usePlainOutput", default = false),
     ReportDuplicateAliasesAsErrors("yatagan.experimental.reportDuplicateAliasesAsErrors", default = false),
     AllConditionsLazy("yatagan.experimental.allConditionsLazy", default = false),

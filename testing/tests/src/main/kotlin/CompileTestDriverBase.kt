@@ -44,7 +44,7 @@ abstract class CompileTestDriverBase private constructor(
     private var precompiledModuleOutputDirs: List<File>? = null
     private val options = mutableMapOf(
         IntOption.MaxIssueEncounterPaths.key to "100",
-        IntOption.MaxSlotsPerSwitch.key to "100",
+        IntOption.MaxSlotsPerSwitch.key to "2",
         BooleanOption.SortMethodsForTesting.key to "true",
     )
 

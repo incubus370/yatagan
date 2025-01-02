@@ -56,7 +56,7 @@ internal class UnscopedProviderGenerator @Inject constructor(
                     modifiers(PUBLIC)
                     annotation<Override>()
                     returnType(ClassName.OBJECT)
-                    +"return this.mDelegate.%N(this.mIndex)".formatCode(SlotSwitchingGenerator.FactoryMethodName)
+                    +"return this.mDelegate.%N(this.mIndex)".formatCode(SlotSwitchingGenerator.FactoryAccessMethodName)
                 }
             }
         }
