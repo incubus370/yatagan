@@ -47,10 +47,12 @@ internal class ScopedProviderGenerator @Inject constructor(
                 modifiers(PRIVATE, STATIC, FINAL)
                 field(componentImplName, "mDelegate") { modifiers(PRIVATE, FINAL) }
                 field(ClassName.INT, "mIndex") { modifiers(PRIVATE, FINAL) }
-                field(ClassName.OBJECT, "mValue") {
-                    modifiers(PRIVATE)
-                    if (useDoubleChecking) {
-                        modifiers(VOLATILE)
+                if (!options.storeInstanceObjectsInArray) {
+                    field(ClassName.OBJECT, "mValue") {
+                        modifiers(PRIVATE)
+                        if (useDoubleChecking) {
+                            modifiers(VOLATILE)
+                        }
                     }
                 }
                 constructor {
@@ -60,29 +62,46 @@ internal class ScopedProviderGenerator @Inject constructor(
                     +"mIndex = index"
                 }
 
-                method("get") {
-                    modifiers(PUBLIC)
-                    annotation<Override>()
-                    returnType(ClassName.OBJECT)
-                    +"%T local = mValue".formatCode(ClassName.OBJECT)
-                    controlFlow("if (local == null)") {
-                        if (useDoubleChecking) {
-                            controlFlow("synchronized (this)") {
-                                +"local = mValue"
-                                controlFlow("if (local == null)") {
-                                    +"local = mDelegate.%N(mIndex)".formatCode(SlotSwitchingGenerator.FactoryAccessMethodName)
-                                    +"mValue = local"
-                                }
-                            }
-                        } else {
-                            if (options.enableThreadChecks) {
-                                +"%T.assertThreadAccess()".formatCode(Names.ThreadAssertions)
-                            }
-                            +"local = mDelegate.%N(mIndex)".formatCode(SlotSwitchingGenerator.FactoryAccessMethodName)
-                            +"mValue = local"
-                        }
+                if (options.storeInstanceObjectsInArray) {
+                    method("get") {
+                        modifiers(PUBLIC)
+                        annotation<Override>()
+                        returnType(ClassName.OBJECT)
+                        +"return mDelegate.%N(mIndex)".formatCode(SlotSwitchingGenerator.ScopedFactoryAccessMethodName)
                     }
-                    +"return local"
+                } else {
+                    method("get") {
+                        modifiers(PUBLIC)
+                        annotation<Override>()
+                        returnType(ClassName.OBJECT)
+                        +"%T local = mValue".formatCode(ClassName.OBJECT)
+                        controlFlow("if (local == null)") {
+                            if (useDoubleChecking) {
+                                controlFlow("synchronized (this)") {
+                                    +"local = mValue"
+                                    controlFlow("if (local == null)") {
+                                        if (options.storeInstanceObjectsInArray) {
+                                            +"local = mDelegate.%N(mIndex)".formatCode(SlotSwitchingGenerator.ScopedFactoryAccessMethodName)
+                                        } else {
+                                            +"local = mDelegate.%N(mIndex)".formatCode(SlotSwitchingGenerator.UniversalFactoryAccessMethodName)
+                                        }
+                                        +"mValue = local"
+                                    }
+                                }
+                            } else {
+                                if (options.enableThreadChecks) {
+                                    +"%T.assertThreadAccess()".formatCode(Names.ThreadAssertions)
+                                }
+                                if (options.storeInstanceObjectsInArray) {
+                                    +"local = mDelegate.%N(mIndex)".formatCode(SlotSwitchingGenerator.ScopedFactoryAccessMethodName)
+                                } else {
+                                    +"local = mDelegate.%N(mIndex)".formatCode(SlotSwitchingGenerator.UniversalFactoryAccessMethodName)
+                                }
+                                +"mValue = local"
+                            }
+                        }
+                        +"return local"
+                    }
                 }
             }
         }

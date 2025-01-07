@@ -153,11 +153,13 @@ internal class CachingStrategyMultiThread @AssistedInject constructor(
 
 internal class SlotProviderStrategy @AssistedInject constructor(
     @Assisted private val binding: Binding,
-    cachingProvider: UnscopedProviderGenerator,
+    private val options: ComponentGenerator.Options,
+    private val scopedCachingProvider: ScopedProviderGenerator,
+    private val unscopedCachingProvider: UnscopedProviderGenerator,
     slotSwitchingGenerator: SlotSwitchingGenerator,
 ) : AccessStrategy {
     private val slot = slotSwitchingGenerator.requestSlot(binding)
-    private val providerName = cachingProvider.name
+    //private val providerName = cachingProvider.name
 
     override fun generateAccess(
         builder: ExpressionBuilder,
@@ -172,6 +174,12 @@ internal class SlotProviderStrategy @AssistedInject constructor(
                     binding = binding,
                     isInsideInnerClass = isInsideInnerClass,
                 )
+                val providerName =
+                if (binding.scopes.isNotEmpty() && options.storeInstanceObjectsInArray) {
+                    scopedCachingProvider.name
+                } else {
+                    unscopedCachingProvider.name
+                }
                 // Provider class is chosen based on component (delegate) type - it will be the right one.
                 +"new %T(%L, $slot)".formatCode(providerName, component)
             }

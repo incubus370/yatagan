@@ -22,7 +22,6 @@ import com.squareup.javapoet.ParameterizedTypeName
 import com.squareup.javapoet.TypeVariableName
 import com.yandex.yatagan.codegen.poetry.TypeSpecBuilder
 import com.yandex.yatagan.codegen.poetry.buildExpression
-import com.yandex.yatagan.codegen.poetry.invoke
 import com.yandex.yatagan.core.graph.BindingGraph
 import com.yandex.yatagan.core.graph.bindings.Binding
 import java.util.concurrent.atomic.AtomicReferenceArray
@@ -64,7 +63,17 @@ internal class SlotSwitchingGenerator @Inject constructor(
 
     override fun generate(builder: TypeSpecBuilder) {
         if (!isUsed) return
-        builder.method(FactoryAccessMethodName) {
+
+        if (storeInstanceObjectsInArray) {
+            generateCreateSwitch(builder)
+            if (thisGraph.requiresSynchronizedAccess) {
+                generateCacheMultiThreadSwitch(builder)
+            } else {
+                generateSingleThreadSwitch(builder)
+            }
+            return
+        }
+        builder.method(UniversalFactoryAccessMethodName) {
             modifiers(/*package-private*/)
             returnType(ClassName.OBJECT)
             parameter(ClassName.INT, "slot")
@@ -74,7 +83,7 @@ internal class SlotSwitchingGenerator @Inject constructor(
                 val outerSlotsCount = bindings.size / maxSlotsPerSwitch
                 controlFlow("switch(slot / $maxSlotsPerSwitch)") {
                     for(outerSlot in 0 .. outerSlotsCount) {
-                        val nestedFactoryName = "$FactoryAccessMethodName\$$outerSlot"
+                        val nestedFactoryName = "$UniversalFactoryAccessMethodName\$$outerSlot"
                         builder.method(nestedFactoryName) {
                             modifiers(Modifier.PRIVATE)
                             returnType(ClassName.OBJECT)
@@ -121,20 +130,11 @@ internal class SlotSwitchingGenerator @Inject constructor(
                 }
             }
         }
-
-        if (storeInstanceObjectsInArray) {
-            generateCreateSwitch(builder)
-            if (thisGraph.requiresSynchronizedAccess) {
-                generateCacheMultiThreadSwitch(builder)
-            } else {
-                generateSingleThreadSwitch(builder)
-            }
-        }
     }
 
     private fun generateCreateSwitch(builder: TypeSpecBuilder) {
         if (!isUsed) return
-        builder.method(FactoryCreateMethodName) {
+        builder.method(UnscopedFactoryAccessMethodName) {
             modifiers(/*package-private*/)
             returnType(ClassName.OBJECT)
             parameter(ClassName.INT, "slot")
@@ -144,7 +144,7 @@ internal class SlotSwitchingGenerator @Inject constructor(
                 val outerSlotsCount = bindings.size / maxSlotsPerSwitch
                 controlFlow("switch(slot / $maxSlotsPerSwitch)") {
                     for(outerSlot in 0 .. outerSlotsCount) {
-                        val nestedFactoryName = "$FactoryCreateMethodName\$$outerSlot"
+                        val nestedFactoryName = "$UnscopedFactoryAccessMethodName\$$outerSlot"
                         builder.method(nestedFactoryName) {
                             modifiers(Modifier.PRIVATE)
                             returnType(ClassName.OBJECT)
@@ -216,7 +216,7 @@ internal class SlotSwitchingGenerator @Inject constructor(
                     +"%T.assertThreadAccess()".formatCode(Names.ThreadAssertions)
                 }
                 +buildExpression {
-                    +"local = this.%N(slot)".formatCode(FactoryCreateMethodName)
+                    +"local = this.%N(slot)".formatCode(UnscopedFactoryAccessMethodName)
                 }
                 +"this.%N[slot] = local".formatCode(instanceArrayFieldName)
             }
@@ -262,7 +262,7 @@ internal class SlotSwitchingGenerator @Inject constructor(
                     +"local = this.%N.get(slot)".formatCode(instanceArrayFieldName)
                     controlFlow("if (local instanceof %T)".formatCode(lockName)) {
                         +buildExpression {
-                            +"local = this.%N(slot)".formatCode(FactoryCreateMethodName)
+                            +"local = this.%N(slot)".formatCode(UnscopedFactoryAccessMethodName)
                         }
                         +"this.%N.set(slot, local)".formatCode(instanceArrayFieldName)
                     }
@@ -273,7 +273,8 @@ internal class SlotSwitchingGenerator @Inject constructor(
     }
 
     companion object {
-        const val FactoryAccessMethodName = "switch\$\$access"
-        const val FactoryCreateMethodName = "switch\$\$create"
+        const val UniversalFactoryAccessMethodName = "switch\$\$access"
+        const val ScopedFactoryAccessMethodName = "cache"
+        const val UnscopedFactoryAccessMethodName = "switch\$\$create"
     }
 }

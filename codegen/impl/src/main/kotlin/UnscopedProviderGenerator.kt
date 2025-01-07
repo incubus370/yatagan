@@ -28,6 +28,7 @@ import javax.lang.model.element.Modifier.STATIC
 
 @Singleton
 internal class UnscopedProviderGenerator @Inject constructor(
+    private val options: ComponentGenerator.Options,
     private val componentImplName: ClassName,
 ) : ComponentGenerator.Contributor {
     private var isUsed = false
@@ -56,7 +57,11 @@ internal class UnscopedProviderGenerator @Inject constructor(
                     modifiers(PUBLIC)
                     annotation<Override>()
                     returnType(ClassName.OBJECT)
-                    +"return this.mDelegate.%N(this.mIndex)".formatCode(SlotSwitchingGenerator.FactoryAccessMethodName)
+                    if (options.storeInstanceObjectsInArray) {
+                        +"return this.mDelegate.%N(this.mIndex)".formatCode(SlotSwitchingGenerator.UnscopedFactoryAccessMethodName)
+                    } else {
+                        +"return this.mDelegate.%N(this.mIndex)".formatCode(SlotSwitchingGenerator.UniversalFactoryAccessMethodName)
+                    }
                 }
             }
         }
