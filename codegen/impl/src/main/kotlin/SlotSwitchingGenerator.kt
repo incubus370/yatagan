@@ -24,6 +24,10 @@ import com.yandex.yatagan.codegen.poetry.TypeSpecBuilder
 import com.yandex.yatagan.codegen.poetry.buildExpression
 import com.yandex.yatagan.core.graph.BindingGraph
 import com.yandex.yatagan.core.graph.bindings.Binding
+import com.yandex.yatagan.core.model.NodeModel
+import com.yandex.yatagan.core.model.component1
+import com.yandex.yatagan.core.model.component2
+import com.yandex.yatagan.core.model.isEager
 import java.util.concurrent.atomic.AtomicReferenceArray
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -48,6 +52,7 @@ internal class SlotSwitchingGenerator @Inject constructor(
     }
 
     private var isUsed = false
+    private var isProceed = false
     private val bindings = arrayListOf<Binding>()
     private val seen = hashSetOf<Binding>()
 
@@ -56,31 +61,107 @@ internal class SlotSwitchingGenerator @Inject constructor(
         if (forBinding in seen) {
             return bindings.indexOf(forBinding)
         }
+        check(!isProceed) { "slot requested after topological sorting" }
         bindings += forBinding
         seen += forBinding
         return bindings.lastIndex
     }
 
+    private fun topologicalSort(bindings: List<Binding>): MutableList<Binding> {
+        val sortedBindings = bindings
+
+        val topologicalSortedBindings = mutableListOf<Binding>()/*.apply {
+            addAll(sortedBindings)
+        }*/
+
+        val nodes = sortedBindings.map { it.target }
+        val remainingNodes = HashSet(nodes)
+        val seenNodes = HashSet<NodeModel>()
+
+        fun visit(binding: Binding) {
+            // It's important to use non-alias binding here to work with real dependencies for topological sorting
+
+            if (remainingNodes.isEmpty()) {
+                // No more work to do.
+                return
+            }
+
+            for (dependency in binding.dependencies) {
+                val (dependencyNode, kind) = dependency
+                if (!kind.isEager) {
+                    continue
+                }
+
+                if (!seenNodes.add(dependencyNode)) {
+                    // graph may be invalid and contain loops
+                    continue
+                }
+
+                visit(binding.owner.resolveBinding(dependencyNode))
+            }
+
+            val node = binding.target
+            if (remainingNodes.remove(node)) {
+                topologicalSortedBindings += binding
+            }
+        }
+
+        for (binding in sortedBindings) visit(binding)
+
+        check(remainingNodes.isEmpty()) { "Not reached" }
+
+        check(sortedBindings.size == topologicalSortedBindings.size) { "Topological binding is lost" }
+
+        return topologicalSortedBindings
+    }
+
+    fun getSortedSlot(requestedSlot: Int) : String {
+       return thisGraph[GeneratorComponent].implementationClassName.canonicalName() + "._slot_$requestedSlot"
+    }
+
     override fun generate(builder: TypeSpecBuilder) {
         if (!isUsed) return
 
+        isProceed = true
+
+        val sortedBindings = arrayListOf<Binding>().apply {
+            addAll(bindings)
+        }.run {
+            topologicalSort(this)
+        }
+
+        val sortedNodes = sortedBindings.map { it.target }
+
+
         if (storeInstanceObjectsInArray) {
-            generateCreateSwitch(builder)
+            generateCreateSwitch(builder, sortedBindings)
             if (thisGraph.requiresSynchronizedAccess) {
-                generateCacheMultiThreadSwitch(builder)
+                generateCacheMultiThreadSwitch(builder, sortedBindings)
             } else {
-                generateSingleThreadSwitch(builder)
+                generateSingleThreadSwitch(builder, sortedBindings)
             }
+
+            bindings.forEachIndexed { index, binding ->
+                val instanceArrayFieldName = "_slot_$index"
+                builder.field(ClassName.INT, instanceArrayFieldName) {
+                    modifiers(PRIVATE, STATIC, FINAL)
+                    val realSlot = sortedNodes.indexOf(binding.target)
+                    initializer{
+                        +"$realSlot"
+                    }
+                }
+            }
+
             return
         }
         builder.method(UniversalFactoryAccessMethodName) {
             modifiers(/*package-private*/)
             returnType(ClassName.OBJECT)
             parameter(ClassName.INT, "slot")
-            if (maxSlotsPerSwitch > 1 && bindings.size > maxSlotsPerSwitch) {
+            if (maxSlotsPerSwitch > 1 && sortedBindings.size > maxSlotsPerSwitch) {
                 // Strategy with two-level-nested switches
 
-                val outerSlotsCount = bindings.size / maxSlotsPerSwitch
+                val outerSlotsCount = sortedBindings.size / maxSlotsPerSwitch
                 controlFlow("switch(slot / $maxSlotsPerSwitch)") {
                     for(outerSlot in 0 .. outerSlotsCount) {
                         val nestedFactoryName = "$UniversalFactoryAccessMethodName\$$outerSlot"
@@ -91,8 +172,8 @@ internal class SlotSwitchingGenerator @Inject constructor(
                             controlFlow("switch(slot)") {
                                 val startIndex = outerSlot * maxSlotsPerSwitch
                                 var nestedSlot = 0
-                                while((startIndex + nestedSlot) < bindings.size && nestedSlot < maxSlotsPerSwitch) {
-                                    val binding = bindings[startIndex + nestedSlot]
+                                while((startIndex + nestedSlot) < sortedBindings.size && nestedSlot < maxSlotsPerSwitch) {
+                                    val binding = sortedBindings[startIndex + nestedSlot]
                                     +buildExpression {
                                         +"case $nestedSlot: return "
                                         binding.generateAccess(
@@ -116,7 +197,7 @@ internal class SlotSwitchingGenerator @Inject constructor(
                 // Single switch statement
 
                 controlFlow("switch(slot)") {
-                    bindings.forEachIndexed { slot, binding ->
+                    sortedBindings.forEachIndexed { slot, binding ->
                         +buildExpression {
                             +"case $slot: return "
                             binding.generateAccess(
@@ -132,16 +213,16 @@ internal class SlotSwitchingGenerator @Inject constructor(
         }
     }
 
-    private fun generateCreateSwitch(builder: TypeSpecBuilder) {
+    private fun generateCreateSwitch(builder: TypeSpecBuilder, sortedBindings: List<Binding>) {
         if (!isUsed) return
         builder.method(UnscopedFactoryAccessMethodName) {
             modifiers(/*package-private*/)
             returnType(ClassName.OBJECT)
             parameter(ClassName.INT, "slot")
-            if (maxSlotsPerSwitch > 1 && bindings.size > maxSlotsPerSwitch) {
+            if (maxSlotsPerSwitch > 1 && sortedBindings.size > maxSlotsPerSwitch) {
                 // Strategy with two-level-nested switches
 
-                val outerSlotsCount = bindings.size / maxSlotsPerSwitch
+                val outerSlotsCount = sortedBindings.size / maxSlotsPerSwitch
                 controlFlow("switch(slot / $maxSlotsPerSwitch)") {
                     for(outerSlot in 0 .. outerSlotsCount) {
                         val nestedFactoryName = "$UnscopedFactoryAccessMethodName\$$outerSlot"
@@ -152,8 +233,8 @@ internal class SlotSwitchingGenerator @Inject constructor(
                             controlFlow("switch(slot)") {
                                 val startIndex = outerSlot * maxSlotsPerSwitch
                                 var nestedSlot = 0
-                                while((startIndex + nestedSlot) < bindings.size && nestedSlot < maxSlotsPerSwitch) {
-                                    val binding = bindings[startIndex + nestedSlot]
+                                while((startIndex + nestedSlot) < sortedBindings.size && nestedSlot < maxSlotsPerSwitch) {
+                                    val binding = sortedBindings[startIndex + nestedSlot]
                                     +buildExpression {
                                         +"case $nestedSlot: return "
                                         binding.generateCreation(
@@ -177,7 +258,7 @@ internal class SlotSwitchingGenerator @Inject constructor(
                 // Single switch statement
 
                 controlFlow("switch(slot)") {
-                    bindings.forEachIndexed { slot, binding ->
+                    sortedBindings.forEachIndexed { slot, binding ->
                         +buildExpression {
                             +"case $slot: return "
                             binding.generateCreation(
@@ -194,12 +275,12 @@ internal class SlotSwitchingGenerator @Inject constructor(
     }
 
 
-    private fun generateSingleThreadSwitch(builder: TypeSpecBuilder) = with(builder) {
+    private fun generateSingleThreadSwitch(builder: TypeSpecBuilder, sortedBindings: List<Binding>) = with(builder) {
         val instanceArrayFieldName = "instances"
         field(ArrayTypeName.of(ClassName.OBJECT), instanceArrayFieldName) {
             modifiers(PRIVATE, FINAL)  // PRIVATE: only accessed via its accessor.
             initializer{
-                +"new %T[${bindings.size}]".formatCode(ClassName.OBJECT)
+                +"new %T[${sortedBindings.size}]".formatCode(ClassName.OBJECT)
             }
         }
 
@@ -224,7 +305,7 @@ internal class SlotSwitchingGenerator @Inject constructor(
         }
     }
 
-    private fun generateCacheMultiThreadSwitch(builder: TypeSpecBuilder) = with(builder) {
+    private fun generateCacheMultiThreadSwitch(builder: TypeSpecBuilder, sortedBindings: List<Binding>) = with(builder) {
         val instanceCollectionType =
             ParameterizedTypeName.get(ClassName.get(AtomicReferenceArray::class.java),
                 ClassName.OBJECT)
@@ -245,7 +326,7 @@ internal class SlotSwitchingGenerator @Inject constructor(
         field(instanceCollectionType, instanceArrayFieldName) {
             modifiers(PRIVATE, FINAL)  // PRIVATE: only accessed via its accessor.
             initializer{
-                +"createInstanceArray(${bindings.size})"
+                +"createInstanceArray(${sortedBindings.size})"
             }
         }
 

@@ -63,7 +63,9 @@ internal abstract class CachingStrategyBase(
                     )
                     if (options.storeInstanceObjectsInArray) {
                         val targetType = binding.target.typeName()
-                        +"%L.<%T>%N($slot)".formatCode(component, targetType, "cache")
+                        val sortedSlot = slotSwitchingGenerator.getSortedSlot(slot)
+
+                        +"%L.<%T>%N(%N)".formatCode(component, targetType, "cache", sortedSlot)
                     } else {
                         +"%L.%N()".formatCode(component, instanceAccessorName)
                     }
@@ -156,7 +158,7 @@ internal class SlotProviderStrategy @AssistedInject constructor(
     private val options: ComponentGenerator.Options,
     private val scopedCachingProvider: ScopedProviderGenerator,
     private val unscopedCachingProvider: UnscopedProviderGenerator,
-    slotSwitchingGenerator: SlotSwitchingGenerator,
+    private val slotSwitchingGenerator: SlotSwitchingGenerator,
 ) : AccessStrategy {
     private val slot = slotSwitchingGenerator.requestSlot(binding)
     //private val providerName = cachingProvider.name
@@ -181,7 +183,10 @@ internal class SlotProviderStrategy @AssistedInject constructor(
                     unscopedCachingProvider.name
                 }
                 // Provider class is chosen based on component (delegate) type - it will be the right one.
-                +"new %T(%L, $slot)".formatCode(providerName, component)
+
+                val sortedSlot = slotSwitchingGenerator.getSortedSlot(slot)
+
+                +"new %T(%L, %N)".formatCode(providerName, component, sortedSlot)
             }
             else -> throw AssertionError()
         }.let { /*exhaustive*/ }
@@ -288,7 +293,7 @@ internal class CompositeStrategy(
 
 internal class OnTheFlyScopedProviderCreationStrategy @AssistedInject constructor(
     cachingProvider: ScopedProviderGenerator,
-    slotSwitchingGenerator: SlotSwitchingGenerator,
+    private val slotSwitchingGenerator: SlotSwitchingGenerator,
     @Assisted private val binding: Binding,
 ) : AccessStrategy {
     private val slot = slotSwitchingGenerator.requestSlot(binding)
@@ -303,14 +308,15 @@ internal class OnTheFlyScopedProviderCreationStrategy @AssistedInject constructo
         require(kind == DependencyKind.Lazy || kind == DependencyKind.Provider)
         builder.apply {
             val component = componentForBinding(inside = inside, binding = binding, isInsideInnerClass = isInsideInnerClass)
-            +"new %T(%L, $slot)".formatCode(providerName, component)
+            val sortedSlot = slotSwitchingGenerator.getSortedSlot(slot)
+            +"new %T(%L, %N)".formatCode(providerName, component, sortedSlot)
         }
     }
 }
 
 internal class OnTheFlyUnscopedProviderCreationStrategy @AssistedInject constructor(
     unscopedProviderGenerator: UnscopedProviderGenerator,
-    slotSwitchingGenerator: SlotSwitchingGenerator,
+    private val slotSwitchingGenerator: SlotSwitchingGenerator,
     @Assisted private val binding: Binding,
 ) : AccessStrategy {
     private val slot = slotSwitchingGenerator.requestSlot(binding)
@@ -325,7 +331,8 @@ internal class OnTheFlyUnscopedProviderCreationStrategy @AssistedInject construc
         require(kind == DependencyKind.Provider)
         builder.apply {
             val component = componentForBinding(inside = inside, binding = binding, isInsideInnerClass = isInsideInnerClass)
-            +"new %T(%L, $slot)".formatCode(providerName, component)
+            val sortedSlot = slotSwitchingGenerator.getSortedSlot(slot)
+            +"new %T(%L, %N)".formatCode(providerName, component, sortedSlot)
         }
     }
 }
