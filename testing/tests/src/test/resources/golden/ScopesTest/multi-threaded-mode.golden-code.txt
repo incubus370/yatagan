@@ -12,7 +12,6 @@ import java.lang.Object;
 import java.lang.Override;
 import java.lang.SuppressWarnings;
 import java.util.Collections;
-import java.util.concurrent.atomic.AtomicReferenceArray;
 import javax.annotation.processing.Generated;
 import javax.inject.Provider;
 
@@ -20,116 +19,95 @@ import javax.inject.Provider;
 @YataganGenerated
 @Generated("com.yandex.yatagan.codegen.impl.ComponentGenerator")
 public final class Yatagan$TestComponent implements TestComponent {
-  private final AtomicReferenceArray<Object> instances = createInstanceArray(5);
+  private static final int _slot_0 = 0;
+
+  private static final int _slot_1 = 1;
+
+  private static final int _slot_2 = 2;
+
+  private static final int _slot_3 = 3;
+
+  private static final int _slot_4 = 4;
+
+  private final InstanceHolder[] instances = createInstanceArray(5);
 
   private Yatagan$TestComponent() {
   }
 
   @Override
   public ClassA getA() {
-    return this.cache(4);
+    return this.<ClassA>cache(test.Yatagan$TestComponent._slot_0);
   }
 
   @Override
   public Lazy<ClassB> getB() {
-    return new ProviderImpl(this, 0);
+    return new DoubleCheck(this, test.Yatagan$TestComponent._slot_1);
   }
 
   @Override
   public Provider<ClassC> getC() {
-    return new ProviderImpl(this, 1);
+    return new DoubleCheck(this, test.Yatagan$TestComponent._slot_2);
   }
 
   @Override
   public Provider<ClassD> getD() {
-    return new ProviderImpl(this, 2);
+    return new ProviderImpl(this, test.Yatagan$TestComponent._slot_3);
   }
 
   @Override
   public Lazy<ClassE> getE() {
-    return new DoubleCheck(this, 3);
-  }
-
-  private Object switch$$access$0(int slot) {
-    switch(slot) {
-      case 0: return this.cache(0);
-      case 1: return this.cache(1);
-      default: throw new AssertionError();
-    }
-  }
-
-  private Object switch$$access$1(int slot) {
-    switch(slot) {
-      case 0: return new ClassD(this.cache(0));
-      case 1: return new ClassE(this.cache(0));
-      default: throw new AssertionError();
-    }
-  }
-
-  private Object switch$$access$2(int slot) {
-    switch(slot) {
-      case 0: return this.cache(4);
-      default: throw new AssertionError();
-    }
-  }
-
-  Object switch$$access(int slot) {
-    switch(slot / 2) {
-      case 0: return switch$$access$0(slot % 2);
-      case 1: return switch$$access$1(slot % 2);
-      case 2: return switch$$access$2(slot % 2);
-      default: throw new AssertionError();
-    }
+    return new DoubleCheck(this, test.Yatagan$TestComponent._slot_4);
   }
 
   private Object switch$$create$0(int slot) {
     switch(slot) {
-      case 0: return new ClassB(this.cache(4));
-      case 1: return new ClassC(this.cache(4));
+      case 0: return new ClassA();
+      case 1: return new ClassB(this.<ClassA>cache(test.Yatagan$TestComponent._slot_0));
       default: throw new AssertionError();
     }
   }
 
   private Object switch$$create$1(int slot) {
     switch(slot) {
-      case 0: return new ClassD(this.cache(0));
-      case 1: return new ClassE(this.cache(0));
+      case 0: return new ClassC(this.<ClassA>cache(test.Yatagan$TestComponent._slot_0));
+      case 1: return new ClassD(this.<ClassB>cache(test.Yatagan$TestComponent._slot_1));
       default: throw new AssertionError();
     }
   }
 
   private Object switch$$create$2(int slot) {
     switch(slot) {
-      case 0: return new ClassA();
+      case 0: return new ClassE(this.<ClassB>cache(test.Yatagan$TestComponent._slot_1));
       default: throw new AssertionError();
     }
   }
 
   Object switch$$create(int slot) {
     switch(slot / 2) {
-      case 0: return switch$$create$0(slot % 2);
-      case 1: return switch$$create$1(slot % 2);
-      case 2: return switch$$create$2(slot % 2);
+      case 0: return switch$$create$0(slot % 100);
+      case 1: return switch$$create$1(slot % 100);
+      case 2: return switch$$create$2(slot % 100);
       default: throw new AssertionError();
     }
   }
 
-  static AtomicReferenceArray<Object> createInstanceArray(int size) {
-    Object[] instances = new Object[size];
+  static InstanceHolder[] createInstanceArray(int size) {
+    InstanceHolder[] instances = new InstanceHolder[size];
     for (int index = 0; index < size; index++) {
-      instances[index] = new UninitializedLock();
+      instances[index] = new InstanceHolder();
     }
-    return new AtomicReferenceArray<Object>(instances);
+    return instances;
   }
 
   <I> I cache(int slot) {
-    Object local = this.instances.get(slot);
-    if (local instanceof UninitializedLock) {
-      synchronized (local) {
-        local = this.instances.getPlain(slot);
-        if (local instanceof UninitializedLock) {
+    InstanceHolder instanceHolder = this.instances[slot];
+    Object local = instanceHolder.mValue;
+    if (local == null) {
+      synchronized (instanceHolder) {
+        local = instanceHolder.mValue;
+        if (local == null) {
           local = this.switch$$create(slot);
-          this.instances.set(slot, local);
+          instanceHolder.mValue = local;
         }
       }
     }
@@ -140,7 +118,27 @@ public final class Yatagan$TestComponent implements TestComponent {
     return new AutoBuilderImpl();
   }
 
+  private static final class InstanceHolder {
+    volatile Object mValue;
+  }
+
   private static final class UninitializedLock {
+  }
+
+  private static final class DoubleCheck implements Lazy {
+    private final Yatagan$TestComponent mDelegate;
+
+    private final int mIndex;
+
+    DoubleCheck(Yatagan$TestComponent factory, int index) {
+      mDelegate = factory;
+      mIndex = index;
+    }
+
+    @Override
+    public Object get() {
+      return mDelegate.cache(mIndex);
+    }
   }
 
   static final class ProviderImpl implements Lazy {
@@ -155,35 +153,7 @@ public final class Yatagan$TestComponent implements TestComponent {
 
     @Override
     public Object get() {
-      return this.mDelegate.switch$$access(this.mIndex);
-    }
-  }
-
-  private static final class DoubleCheck implements Lazy {
-    private final Yatagan$TestComponent mDelegate;
-
-    private final int mIndex;
-
-    private volatile Object mValue;
-
-    DoubleCheck(Yatagan$TestComponent factory, int index) {
-      mDelegate = factory;
-      mIndex = index;
-    }
-
-    @Override
-    public Object get() {
-      Object local = mValue;
-      if (local == null) {
-        synchronized (this) {
-          local = mValue;
-          if (local == null) {
-            local = mDelegate.switch$$access(mIndex);
-            mValue = local;
-          }
-        }
-      }
-      return local;
+      return this.mDelegate.switch$$create(this.mIndex);
     }
   }
 

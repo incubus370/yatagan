@@ -70,7 +70,7 @@ internal interface GeneratorComponent {
         @[Binds IntoList]
         fun contributor3(i: ScopedProviderGenerator): ComponentGenerator.Contributor
         @[Binds IntoList]
-        fun contributor4(i: LockGenerator): ComponentGenerator.Contributor
+        fun contributor4(i: InstanceHolder): ComponentGenerator.Contributor
         @[Binds IntoList]
         fun contributor5(i: ConditionGenerator): ComponentGenerator.Contributor
         @[Binds IntoList]
@@ -83,6 +83,8 @@ internal interface GeneratorComponent {
         fun contributor9(i: AccessStrategyManager): ComponentGenerator.Contributor
         @[Binds IntoList]
         fun contributor10(i: ComponentFactoryGenerator): ComponentGenerator.Contributor
+        @[Binds IntoList]
+        fun contributor11(i: LockGenerator): ComponentGenerator.Contributor
     }
 
     @Module

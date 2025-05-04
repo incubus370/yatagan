@@ -40,8 +40,9 @@ import javax.lang.model.element.Modifier.STATIC
 internal class SlotSwitchingGenerator @Inject constructor(
     private val thisGraph: BindingGraph,
     private val options: ComponentGenerator.Options,
-    private val lock: LockGenerator,
+    private val instanceHolder: InstanceHolder
 ) : ComponentGenerator.Contributor {
+    private val instanceHolderName = instanceHolder.name
     private val maxSlotsPerSwitch = options.maxSlotsPerSwitch
     private val storeInstanceObjectsInArray = options.storeInstanceObjectsInArray
 
@@ -306,20 +307,17 @@ internal class SlotSwitchingGenerator @Inject constructor(
     }
 
     private fun generateCacheMultiThreadSwitch(builder: TypeSpecBuilder, sortedBindings: List<Binding>) = with(builder) {
-        val instanceCollectionType =
-            ParameterizedTypeName.get(ClassName.get(AtomicReferenceArray::class.java),
-                ClassName.OBJECT)
-
-        val lockName = lock.name
+        val instanceCollectionType = ArrayTypeName.of(instanceHolder.name)
+        val instanceHolderName = instanceHolder.name
         method("createInstanceArray") {
             modifiers(STATIC)
             returnType(instanceCollectionType)
             parameter(ClassName.INT, "size")
-            +"%T[] instances = new %T[size]".formatCode(ClassName.OBJECT, ClassName.OBJECT)
+            +"%T[] instances = new %T[size]".formatCode(instanceHolder.name, instanceHolder.name)
             controlFlow("for (int index = 0; index < size; index++)") {
-                +"instances[index] = new %T()".formatCode(lockName)
+                +"instances[index] = new %T()".formatCode(instanceHolderName)
             }
-            +"return new %T(instances)".formatCode(instanceCollectionType)
+            +"return instances"
         }
 
         val instanceArrayFieldName = "instances"
@@ -337,15 +335,16 @@ internal class SlotSwitchingGenerator @Inject constructor(
             generic(i)
             returnType(i)
             parameter(ClassName.INT, "slot")
-            +"%T local = this.%N.get(slot)".formatCode(ClassName.OBJECT, instanceArrayFieldName)
-            controlFlow("if (local instanceof %T)".formatCode(lockName)) {
-                controlFlow("synchronized (local)") {
-                    +"local = this.%N.get(slot)".formatCode(instanceArrayFieldName)
-                    controlFlow("if (local instanceof %T)".formatCode(lockName)) {
+            +"%T instanceHolder = this.%N[slot]".formatCode(instanceHolder.name, instanceArrayFieldName)
+            +"%T local = instanceHolder.mValue".formatCode(ClassName.OBJECT)
+            controlFlow("if (local == null)") {
+                controlFlow("synchronized (instanceHolder)") {
+                    +"local = instanceHolder.mValue"
+                    controlFlow("if (local == null)") {
                         +buildExpression {
                             +"local = this.%N(slot)".formatCode(UnscopedFactoryAccessMethodName)
                         }
-                        +"this.%N.set(slot, local)".formatCode(instanceArrayFieldName)
+                        +"instanceHolder.mValue = local".formatCode(instanceArrayFieldName)
                     }
                 }
             }
