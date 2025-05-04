@@ -18,7 +18,7 @@ package com.yandex.yatagan.codegen.impl
 
 import com.squareup.javapoet.ArrayTypeName
 import com.squareup.javapoet.ClassName
-import com.squareup.javapoet.ParameterizedTypeName
+import com.squareup.javapoet.TypeName
 import com.squareup.javapoet.TypeVariableName
 import com.yandex.yatagan.codegen.poetry.TypeSpecBuilder
 import com.yandex.yatagan.codegen.poetry.buildExpression
@@ -28,7 +28,6 @@ import com.yandex.yatagan.core.model.NodeModel
 import com.yandex.yatagan.core.model.component1
 import com.yandex.yatagan.core.model.component2
 import com.yandex.yatagan.core.model.isEager
-import java.util.concurrent.atomic.AtomicReferenceArray
 import javax.inject.Inject
 import javax.inject.Singleton
 import javax.lang.model.element.Modifier
@@ -40,9 +39,11 @@ import javax.lang.model.element.Modifier.STATIC
 internal class SlotSwitchingGenerator @Inject constructor(
     private val thisGraph: BindingGraph,
     private val options: ComponentGenerator.Options,
-    private val instanceHolder: InstanceHolder
+    private val instanceHolder: InstanceHolder,
+    lock: LockGenerator,
 ) : ComponentGenerator.Contributor {
     private val instanceHolderName = instanceHolder.name
+    private val lockName = lock.name
     private val maxSlotsPerSwitch = options.maxSlotsPerSwitch
     private val storeInstanceObjectsInArray = options.storeInstanceObjectsInArray
 
@@ -307,15 +308,16 @@ internal class SlotSwitchingGenerator @Inject constructor(
     }
 
     private fun generateCacheMultiThreadSwitch(builder: TypeSpecBuilder, sortedBindings: List<Binding>) = with(builder) {
-        val instanceCollectionType = ArrayTypeName.of(instanceHolder.name)
-        val instanceHolderName = instanceHolder.name
+        val instanceCollectionType = ArrayTypeName.of(TypeName.OBJECT)
+        val instanceType = TypeName.OBJECT
+        val lockName = lockName
         method("createInstanceArray") {
             modifiers(STATIC)
             returnType(instanceCollectionType)
             parameter(ClassName.INT, "size")
-            +"%T[] instances = new %T[size]".formatCode(instanceHolder.name, instanceHolder.name)
+            +"%T[] instances = new %T[size]".formatCode(instanceType, instanceType)
             controlFlow("for (int index = 0; index < size; index++)") {
-                +"instances[index] = new %T()".formatCode(instanceHolderName)
+                +"instances[index] = new %T()".formatCode(lockName)
             }
             +"return instances"
         }
@@ -335,20 +337,18 @@ internal class SlotSwitchingGenerator @Inject constructor(
             generic(i)
             returnType(i)
             parameter(ClassName.INT, "slot")
-            +"%T instanceHolder = this.%N[slot]".formatCode(instanceHolder.name, instanceArrayFieldName)
-            +"%T local = instanceHolder.mValue".formatCode(ClassName.OBJECT)
-            controlFlow("if (local == null)") {
+            +"%T instanceHolder = this.%N[slot]".formatCode(ClassName.OBJECT, instanceArrayFieldName)
+            controlFlow("if (instanceHolder instanceof %T)".formatCode(lockName)) {
                 controlFlow("synchronized (instanceHolder)") {
-                    +"local = instanceHolder.mValue"
-                    controlFlow("if (local == null)") {
-                        +buildExpression {
-                            +"local = this.%N(slot)".formatCode(UnscopedFactoryAccessMethodName)
-                        }
-                        +"instanceHolder.mValue = local".formatCode(instanceArrayFieldName)
+                    +"instanceHolder = this.%N[slot]".formatCode(instanceArrayFieldName)
+                    controlFlow("if (instanceHolder instanceof %T)".formatCode(lockName)) {
+                        +"%T local = this.%N(slot)".formatCode(ClassName.OBJECT, UnscopedFactoryAccessMethodName)
+                        +"this.%N[slot] = new %T(local)".formatCode(instanceArrayFieldName, instanceHolder.name)
+                        +"return (%T) local".formatCode(i)
                     }
                 }
             }
-            +"return (%T) local".formatCode(i)
+            +"return (%T) ((%T)instanceHolder).mValue".formatCode(i, instanceHolder.name)
         }
     }
 

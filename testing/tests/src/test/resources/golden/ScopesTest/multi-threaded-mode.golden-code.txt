@@ -29,7 +29,7 @@ public final class Yatagan$TestComponent implements TestComponent {
 
   private static final int _slot_4 = 4;
 
-  private final InstanceHolder[] instances = createInstanceArray(5);
+  private final Object[] instances = createInstanceArray(5);
 
   private Yatagan$TestComponent() {
   }
@@ -91,27 +91,27 @@ public final class Yatagan$TestComponent implements TestComponent {
     }
   }
 
-  static InstanceHolder[] createInstanceArray(int size) {
-    InstanceHolder[] instances = new InstanceHolder[size];
+  static Object[] createInstanceArray(int size) {
+    Object[] instances = new Object[size];
     for (int index = 0; index < size; index++) {
-      instances[index] = new InstanceHolder();
+      instances[index] = new UninitializedLock();
     }
     return instances;
   }
 
   <I> I cache(int slot) {
-    InstanceHolder instanceHolder = this.instances[slot];
-    Object local = instanceHolder.mValue;
-    if (local == null) {
+    Object instanceHolder = this.instances[slot];
+    if (instanceHolder instanceof UninitializedLock) {
       synchronized (instanceHolder) {
-        local = instanceHolder.mValue;
-        if (local == null) {
-          local = this.switch$$create(slot);
-          instanceHolder.mValue = local;
+        instanceHolder = this.instances[slot];
+        if (instanceHolder instanceof UninitializedLock) {
+          Object local = this.switch$$create(slot);
+          this.instances[slot] = new InstanceHolder(local);
+          return (I) local;
         }
       }
     }
-    return (I) local;
+    return (I) ((InstanceHolder)instanceHolder).mValue;
   }
 
   public static AutoBuilder<Yatagan$TestComponent> autoBuilder() {
@@ -119,7 +119,11 @@ public final class Yatagan$TestComponent implements TestComponent {
   }
 
   private static final class InstanceHolder {
-    volatile Object mValue;
+    final Object mValue;
+
+    InstanceHolder(Object value) {
+      mValue = value;
+    }
   }
 
   private static final class UninitializedLock {

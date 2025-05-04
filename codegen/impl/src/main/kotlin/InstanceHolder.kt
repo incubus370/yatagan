@@ -42,7 +42,11 @@ internal class InstanceHolder @Inject constructor(
             buildClass(name) {
                 modifiers(PRIVATE, STATIC, FINAL)
                 field(ClassName.OBJECT, "mValue") {
-                    modifiers(VOLATILE)
+                    modifiers(FINAL)
+                }
+                constructor {
+                    parameter(ClassName.OBJECT, "value")
+                    +"mValue = value"
                 }
             }
         }
