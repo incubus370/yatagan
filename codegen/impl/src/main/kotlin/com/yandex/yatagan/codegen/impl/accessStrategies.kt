@@ -77,13 +77,19 @@ internal class CachingStrategySingleThread @AssistedInject constructor(
         val targetType = binding.target.typeName()
         field(ClassName.OBJECT, instanceFieldName) {
             modifiers(PRIVATE)  // PRIVATE: only accessed via its accessor.
+            if (binding.owner.requiresSynchronizedAccess) {
+                // Reusable permits duplicate creation, but still requires safe publication.
+                modifiers(VOLATILE)
+            }
         }
         method(instanceAccessorName) {
             modifiers(/*package-private*/)
             returnType(targetType)
             +"%T local = this.%N".formatCode(ClassName.OBJECT, instanceFieldName)
             controlFlow("if (local == null)") {
-                threadChecker.generateThreadAssertion(this)
+                if (!binding.owner.requiresSynchronizedAccess) {
+                    threadChecker.generateThreadAssertion(this)
+                }
                 +buildExpression {
                     +"local = "
                     binding.generateCreation(builder = this, inside = binding.owner, isInsideInnerClass = false)

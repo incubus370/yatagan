@@ -4,6 +4,7 @@ package test;
 
 import com.yandex.yatagan.AutoBuilder;
 import com.yandex.yatagan.Lazy;
+import com.yandex.yatagan.Optional;
 import com.yandex.yatagan.internal.Checks;
 import com.yandex.yatagan.internal.YataganGenerated;
 import java.lang.AssertionError;
@@ -24,6 +25,8 @@ public final class YataganTestComponent implements TestComponent {
   private volatile Object mClassBInstance = new UninitializedLock();
 
   private volatile Object mClassCInstance = new UninitializedLock();
+
+  private volatile Object mClassFInstance;
 
   private YataganTestComponent() {
   }
@@ -53,12 +56,33 @@ public final class YataganTestComponent implements TestComponent {
     return new DoubleCheck(this, 3);
   }
 
+  @Override
+  public ClassF getF() {
+    return this.cacheClassF();
+  }
+
+  @Override
+  public Lazy<ClassF> getFLazy() {
+    return new DoubleCheck(this, 4);
+  }
+
+  @Override
+  public Provider<ClassF> getFProvider() {
+    return new ProviderImpl(this, 4);
+  }
+
+  @Override
+  public Optional<Lazy<ClassF>> getOptionalF() {
+    return this.optOfTestClassF();
+  }
+
   Object switch$$access(int slot) {
     switch(slot) {
       case 0: return this.cacheClassB();
       case 1: return this.cacheClassC();
       case 2: return new ClassD(this.cacheClassB());
       case 3: return new ClassE(this.cacheClassB());
+      case 4: return this.cacheClassF();
       default: throw new AssertionError();
     }
   }
@@ -103,6 +127,23 @@ public final class YataganTestComponent implements TestComponent {
       }
     }
     return (ClassC) local;
+  }
+
+  ClassF cacheClassF() {
+    Object local = this.mClassFInstance;
+    if (local == null) {
+      local = new ClassF();
+      this.mClassFInstance = local;
+    }
+    return (ClassF) local;
+  }
+
+  Optional optOfClassF() {
+    return Optional.of(this.cacheClassF());
+  }
+
+  Optional optOfTestClassF() {
+    return Optional.of(new DoubleCheck(this, 4));
   }
 
   public static AutoBuilder<YataganTestComponent> autoBuilder() {

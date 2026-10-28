@@ -47,6 +47,38 @@ internal open class SynchronizedCachingAccessStrategy(
     final override fun getLazy(): Lazy<*> = this
 }
 
+// Reusable allows concurrent creation, but each result must be safely published.
+internal open class SingleCheckCachingAccessStrategy(
+    private val binding: Binding,
+    private val accessDelegate: BindingAccessDelegate,
+) : AccessStrategy() {
+    @Volatile
+    private var value: Any? = null
+
+    final override fun get(): Any {
+        value?.let { local -> return local }
+        return accessDelegate.createBinding(binding).also { value = it }
+    }
+
+    // Each Lazy retains its own result even if another creator overwrites this cache.
+    override fun getLazy(): Lazy<*> = SynchronizedLazy(this)
+}
+
+internal open class SynchronizedLazy(
+    private val provider: Provider<Any>,
+) : Lazy<Any> {
+    @Volatile
+    private var value: Any? = null
+
+    final override fun get(): Any {
+        value?.let { local -> return local }
+        return synchronized(this) {
+            value?.let { local -> return local }
+            provider.get().also { value = it }
+        }
+    }
+}
+
 internal open class CachingAccessStrategy(
     private val binding: Binding,
     private val accessDelegate: BindingAccessDelegate,
@@ -113,6 +145,10 @@ internal open class StrategyFactory(
 ) {
     open fun synchronizedCaching(binding: Binding): AccessStrategy {
         return SynchronizedCachingAccessStrategy(binding, component)
+    }
+
+    open fun singleCheckCaching(binding: Binding): AccessStrategy {
+        return SingleCheckCachingAccessStrategy(binding, component)
     }
 
     open fun caching(binding: Binding): AccessStrategy {

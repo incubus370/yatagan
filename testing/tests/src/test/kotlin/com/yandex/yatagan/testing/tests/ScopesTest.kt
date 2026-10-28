@@ -99,6 +99,9 @@ class ScopesTest(
             
             class ClassD @Inject constructor(val b: ClassB)
             class ClassE @Inject constructor(val b: ClassB)
+
+            @Reusable
+            class ClassF @Inject constructor()
              
             @Component(multiThreadAccess = true) @Singleton
             interface TestComponent {
@@ -107,6 +110,10 @@ class ScopesTest(
                 val c: Provider<ClassC>
                 val d: Provider<ClassD>
                 val e: Lazy<ClassE>
+                val f: ClassF
+                val fProvider: Provider<ClassF>
+                val fLazy: Lazy<ClassF>
+                val optionalF: Optional<Lazy<ClassF>>
             }
             
             fun test() {
